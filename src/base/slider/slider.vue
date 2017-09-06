@@ -4,7 +4,9 @@
       <slot><!-- slot是vue的插槽组件，引入slider的content内容会被放到插槽的位置 -->
       </slot>
     </div>
-    <div class="dots"></div>
+    <div class="dots">
+      <span class="dot" v-for="(item, index) in dots" :class="{active: currentPageIndex === index}"></span>
+    </div>
   </div>
 </template>
 
@@ -13,6 +15,12 @@
   import {addClass} from '../../common/js/dom'
 
   export default {
+    data() {
+      return {
+        dots: [],
+        currentPageIndex: 0
+      }
+    },
     props: {
       loop: { // 是否循环轮播
         type: Boolean,
@@ -31,21 +39,32 @@
       this.$nextTick(() => {
         this._setSliderWidth()
         this._initSlider()
+        this._initDots()
+
+        if (this.autoPlay) {
+          this._play()
+        }
+      })
+      window.addEventListener('resize', () => {
+        if (!this.slider) {
+          return
+        }
+        this._setSliderWidth(true)
+        this.slider.refresh()
       })
     },
     methods: {
-      _setSliderWidth() {
+      _setSliderWidth(isResize) {
         this.children = this.$refs.sliderGroup.children
         let width = 0
         let sliderWidth = this.$refs.slider.clientWidth
         for (let i = 0; i < this.children.length; i++) {
           let child = this.children[i]
           addClass(child, 'slider-item')
-          console.log(sliderWidth)
           child.style.width = sliderWidth + 'px'
           width += sliderWidth
         }
-        if (this.loop) { // 如果要实现轮播无间隙循环播放，那么内部content要增加两个sliderWidth的宽度
+        if (this.loop && !isResize) { // 如果要实现轮播无间隙循环播放，那么内部content要增加两个sliderWidth的宽度
           width += 2 * sliderWidth
         }
         this.$refs.sliderGroup.style.width = width + 'px'
@@ -61,6 +80,29 @@
           snapSpeed: 400,
           click: true
         })
+        this.slider.on('scrollEnd', () => {
+          let pageIndex = this.slider.getCurrentPage().pageX
+          if (this.loop) {
+            pageIndex -= 1
+          }
+          this.currentPageIndex = pageIndex
+          if (this.autoPlay) {
+            clearTimeout(this.timer)
+            this._play()
+          }
+        })
+      },
+      _initDots() {
+        this.dots = new Array(this.children.length)
+      },
+      _play() {
+        let pageIndex = this.currentPageIndex + 1
+        if (this.loop) {
+          pageIndex += 1
+        }
+        this.timer = setTimeout(() => {
+          this.slider.goToPage(pageIndex, 0, 400)
+        }, this.interval)
       }
     }
   }
@@ -89,10 +131,10 @@
           display: block
           width: 100%
     .dots
-      position: absolute
+      position: relative
       right: 0
       left: 0
-      bottom: 12px
+      bottom: 20px
       text-align: center
       font-size: 0
       .dot
@@ -101,7 +143,7 @@
         width: 8px
         height: 8px
         border-radius: 50%
-        background: $color-text-l
+        background: #A8A0A0
         &.active
           width: 20px
           border-radius: 5px
